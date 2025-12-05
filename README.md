@@ -1,9 +1,10 @@
-# 🤖 Text-to-SQL Assistant
+# 🤖 Text-to-SQL Assistant (Powered by AutoGen)
 
-An intelligent application that transforms natural language questions into executable SQL queries, runs them against your database, and visualizes the results. Built with OpenAI, ChromaDB, and Streamlit.
+An intelligent application that transforms natural language questions into executable SQL queries using a **Multi-Agent System**. Built with **Microsoft AutoGen**, OpenAI, ChromaDB, and Streamlit.
 
 ## ✨ Features
 
+- **Multi-Agent Collaboration**: Orchestrated by AutoGen, where an Assistant Agent and User Proxy Agent collaborate to solve tasks.
 - **Natural Language Processing**: Convert English questions into complex SQL queries using GPT-4.
 - **Schema-Aware**: Uses ChromaDB to retrieve relevant table schemas, ensuring accurate query generation.
 - **Safety First**: Includes a critic agent to validate SQL and prevent dangerous operations (DROP, DELETE, etc.).
@@ -26,6 +27,7 @@ See the results of your query and download them.
 
 ## 🛠️ Tech Stack
 
+- **Orchestration**: [Microsoft AutoGen](https://microsoft.github.io/autogen/)
 - **Frontend**: [Streamlit](https://streamlit.io/)
 - **LLM**: [OpenAI GPT-4o-mini](https://openai.com/)
 - **Vector Store**: [ChromaDB](https://www.trychroma.com/)
@@ -90,7 +92,7 @@ See the results of your query and download them.
 
 Run the Streamlit application:
 ```bash
-python -m streamlit run app.py
+streamlit run app.py
 ```
 
 Open your browser at `http://localhost:8501` and start asking questions!
@@ -100,7 +102,7 @@ Open your browser at `http://localhost:8501` and start asking questions!
 ```
 text_to_sql/
 ├── agents/                 # AI Agents
-│   ├── orchestrator.py    # Main logic flow
+│   ├── autogen_orchestrator.py # AutoGen Agents & Tools
 │   ├── retriever.py       # Schema retrieval
 │   ├── sql_generator.py   # SQL generation
 │   ├── critic.py          # SQL validation
