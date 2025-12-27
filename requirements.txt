@@ -5,5 +5,5 @@ pandas
 mysql-connector-python
 python-dotenv
 streamlit
-pyautogen
+
 tabulate

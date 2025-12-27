@@ -1,121 +1,139 @@
-# 🤖 Text-to-SQL Assistant (Powered by AutoGen)
+# Text-to-SQL Assistant - Technical Documentation
 
-An intelligent application that transforms natural language questions into executable SQL queries using a **Multi-Agent System**. Built with **Microsoft AutoGen**, OpenAI, ChromaDB, and Streamlit.
+This document provides a detailed technical overview of the **Text-to-SQL Assistant**, an application that converts natural language questions into executable SQL queries. It leverages **OpenAI's GPT models** for reasoning, **ChromaDB** for RAG (Retrieval-Augmented Generation), and **Streamlit** for the user interface.
 
-## ✨ Features
+## 🏗️ Architectural Overview
 
-- **Multi-Agent Collaboration**: Orchestrated by AutoGen, where an Assistant Agent and User Proxy Agent collaborate to solve tasks.
-- **Natural Language Processing**: Convert English questions into complex SQL queries using GPT-4.
-- **Schema-Aware**: Uses ChromaDB to retrieve relevant table schemas, ensuring accurate query generation.
-- **Safety First**: Includes a critic agent to validate SQL and prevent dangerous operations (DROP, DELETE, etc.).
-- **Interactive UI**: A modern, responsive interface built with Streamlit.
-- **Data Visualization**: View query results in an interactive table and download them as CSV.
+The application follows a **sequential pipeline architecture** to process user queries.
 
-## 📸 Screenshots
+### High-Level Data Flow
 
-### 1. Home Screen
-Ask questions in plain English.
-![Home Screen](assets/home_screen.png)
+1.  **User Input**: The user asks a question via the Streamlit UI (e.g., "Show me top 5 customers").
+2.  **Orchestration**: The request is passed to the `answer_question` function in `orchestrator.py`.
+3.  **Pipeline Execution**:
+    1.  **Schema Retrieval (RAG)**: The system searches for relevant database tables using vector embeddings (ChromaDB).
+    2.  **SQL Generation**: The LLM generates a SQL query based on the retrieved schema.
+    3.  **Validation**: A critic module checks the SQL for safety (preventing `DROP`, `DELETE`, etc.).
+    4.  **Execution**: The validated SQL is run against a MySQL database.
+4.  **Response**: The results (Dataframe) and the generated SQL are sent back to the UI.
 
-### 2. SQL Generation
-View the generated SQL query and validation status.
-![Generated SQL](assets/generated_sql.png)
+---
 
-### 3. Query Results
-See the results of your query and download them.
-![Query Results](assets/query_results.png)
+## 🧩 Modules & Components
 
-## 🛠️ Tech Stack
+The core logic resides in the `agents/` directory (note: while named `agents`, these are now functional modules in the pipeline).
 
-- **Orchestration**: [Microsoft AutoGen](https://microsoft.github.io/autogen/)
-- **Frontend**: [Streamlit](https://streamlit.io/)
-- **LLM**: [OpenAI GPT-4o-mini](https://openai.com/)
-- **Vector Store**: [ChromaDB](https://www.trychroma.com/)
-- **Database**: MySQL
-- **Language**: Python 3.10+
+### 1. Orchestrator (`agents/orchestrator.py`)
+This is the simple pipeline controller.
 
-## 🚀 Getting Started
+*   **Function**: `answer_question(question)`
+*   **Logic**: Sequentially calls retrieval, generation, validation, and execution steps. Returns the SQL, validation message, and result DataFrame.
+
+### 2. Schema Retriever (`agents/retriever.py`)
+Implements **Retrieval-Augmented Generation (RAG)** to provide context to the LLM. It avoids feeding the entire database schema to the LLM context window.
+
+*   **Database**: Uses **ChromaDB** to store vector embeddings of table schemas.
+*   **Embeddings**: Uses `text-embedding-3-small` to convert questions and table descriptions into vectors.
+*   **Process**:
+    *   `retrieve_schema(question)` queries the vector store for the top 3 most relevant tables.
+    *   Returns a formatted string containing Table Name, Columns, and Description.
+
+### 3. SQL Critic / Validator (`agents/critic.py`)
+A safety layer to ensure the generated SQL is safe to execute.
+
+*   **Function**: `validate_sql(sql)`
+*   **Checks**: Scans for dangerous keywords like `DROP`, `DELETE`, `UPDATE`, `ALTER`.
+*   **Result**: Returns `True` if safe, otherwise `False` with an error message.
+
+### 4. SQL Executor (`agents/sql_executor.py`)
+Handles the actual interaction with the MySQL database.
+
+*   **Library**: `mysql.connector`
+*   **Function**: `run_sql(sql)`
+*   **Output**: Executes the query and returns the result as a **Pandas DataFrame**.
+
+---
+
+## 📂 Directory Structure
+
+```plaintext
+text_to_sql/
+├── agents/
+│   ├── orchestrator.py          # Main pipeline controller
+│   ├── critic.py                # SQL validation logic
+│   ├── retriever.py             # RAG logic with ChromaDB
+│   ├── sql_executor.py          # MySQL database connection & execution
+│   └── sql_generator.py         # SQL generation logic
+├── db/
+│   └── mysql_connection.py      # Database helper scripts
+├── chroma_store/                # Persisted Vector Database (ChromaDB)
+├── app.py                       # Streamlit Entry Point
+├── build_schema_store.py        # Script to index schema into ChromaDB
+├── requirements.txt             # Project Dependencies
+└── .env                         # Environment variables (API Keys, DB Creds)
+```
+
+---
+
+## 🚀 Setup & Usage
 
 ### Prerequisites
-
-- Python 3.8 or higher
-- MySQL Server
-- OpenAI API Key
+*   Python 3.8+
+*   MySQL Database
+*   OpenAI API Key
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd text_to_sql
-   ```
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository_url>
+    ```
 
-2. **Create a virtual environment**
-   ```bash
-   python -m venv venv
-   # Windows
-   .\venv\Scripts\activate
-   # Mac/Linux
-   source venv/bin/activate
-   ```
+2.  **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+3.  **Configure Environment**:
+    Create a `.env` file with the following:
+    ```ini
+    OPENAI_API_KEY=your_key_here
+    MYSQL_HOST=localhost
+    MYSQL_PORT=3306
+    MYSQL_USER=root
+    MYSQL_PASSWORD=your_password
+    MYSQL_DATABASE=your_db
+    ```
 
-4. **Set up Environment Variables**
-   Create a `.env` file in the root directory:
-   ```env
-   OPENAI_API_KEY=your_openai_api_key
-   MYSQL_HOST=localhost
-   MYSQL_PORT=3306
-   MYSQL_USER=root
-   MYSQL_PASSWORD=your_password
-   MYSQL_DATABASE=texttosql2
-   ```
+4.  **Build Schema Store**:
+    Run this once to populate ChromaDB with your database schema:
+    ```bash
+    python build_schema_store.py
+    ```
 
-5. **Initialize Database**
-   Run the schema script to create tables and sample data in your MySQL database:
-   ```bash
-   # You can use a tool like MySQL Workbench or run via command line
-   mysql -u root -p < schema.sql
-   ```
+5.  **Run the Application**:
+    ```bash
+    streamlit run app.py
+    ```
 
-6. **Build Schema Index**
-   Index your database schema into ChromaDB for the retriever:
-   ```bash
-   python build_schema_store.py
-   ```
+---
 
-### Usage
+## 🛠️ Interaction Diagram
 
-Run the Streamlit application:
-```bash
-streamlit run app.py
+```mermaid
+graph TD
+    User[User (Streamlit UI)] --> Orchestrator[Orchestrator]
+    Orchestrator --> Retriever[Retriever (ChromaDB)]
+    Orchestrator --> Generator[SQL Generator (LLM)]
+    Orchestrator --> Critic[Critic (Validator)]
+    Orchestrator --> Executor[Executor (MySQL)]
+    
+    Retriever -- Schema Context --> Generator
+    Generator -- Generated SQL --> Critic
+    Critic -- Validation Status --> Orchestrator
+    
+    Orchestrator -- If Valid --> Executor
+    Executor -- DataFrame --> Orchestrator
+    
+    Orchestrator --> User
 ```
-
-Open your browser at `http://localhost:8501` and start asking questions!
-
-## 📂 Project Structure
-
-```
-text_to_sql/
-├── agents/                 # AI Agents
-│   ├── autogen_orchestrator.py # AutoGen Agents & Tools
-│   ├── retriever.py       # Schema retrieval
-│   ├── sql_generator.py   # SQL generation
-│   ├── critic.py          # SQL validation
-│   └── sql_executor.py    # Database execution
-├── assets/                 # Images and static assets
-├── data/                   # Data scripts
-├── utils/                  # Utility functions
-├── app.py                  # Streamlit frontend
-├── build_schema_store.py   # Schema indexing script
-├── schema.sql              # Database schema
-└── requirements.txt        # Dependencies
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
